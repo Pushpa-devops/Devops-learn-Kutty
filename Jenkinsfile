@@ -9,7 +9,7 @@ pipeline {
     stages {
         stage('Checkout') {
             steps {
-                git 'https://github.com/Pushpa-devops/Jenkins-Project.git'
+                git  branch: 'main', url: 'https://github.com/Pushpa-devops/Jenkins-Project.git'
             }
         }
 
