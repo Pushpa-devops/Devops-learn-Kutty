@@ -3,32 +3,41 @@ pipeline {
 
     environment {
         IMAGE_NAME = "nginx-jenkins-minikube"
-        KUBECONFIG_PATH = "/var/lib/jenkins/.kube/config"  // path to Jenkins user's kubeconfig
+        KUBECONFIG_PATH = "/var/lib/jenkins/.kube/config"  // Jenkins user kubeconfig
     }
 
     triggers {
-        pollSCM('H * * * *')  // check for new commits once every hour
+        pollSCM('H * * * *')  // Check GitHub once every hour
     }
 
     stages {
 
         stage('Checkout') {
             steps {
-                git branch: 'k8s-Project', url: 'https://github.com/Pushpa-devops/Jenkins-Project.git'
+                git branch: 'main', url: 'https://github.com/Pushpa-devops/minikube-jenkins-demo.git'
             }
         }
 
-        stage('Set up Minikube Docker Environment') {
+        stage('Start Minikube if Needed') {
             steps {
-                // Make sure Docker points to Minikube daemon
                 sh '''
                 #!/bin/bash
-                if ! minikube status >/dev/null 2>&1; then
-                    echo "Starting Minikube..."
-                    minikube start --driver=docker
+                MINIKUBE_STATUS=$(minikube status --format '{{.Host}} {{.Kubelet}} {{.APIServer}}')
+                if [[ "$MINIKUBE_STATUS" != *"Running Running Running"* ]]; then
+                    echo "Starting Minikube with enough resources..."
+                    minikube start --driver=docker --memory=4096 --cpus=2 --addons=storage-provisioner
+                else
+                    echo "Minikube already running"
                 fi
+                '''
+            }
+        }
 
-                echo "Configuring Docker to use Minikube's Docker daemon..."
+        stage('Set Docker to Minikube') {
+            steps {
+                sh '''
+                #!/bin/bash
+                echo "Pointing Docker to Minikube's Docker daemon..."
                 eval $(minikube docker-env)
                 docker version
                 '''
@@ -39,7 +48,7 @@ pipeline {
             steps {
                 sh '''
                 #!/bin/bash
-                echo "Building Docker image for Minikube..."
+                echo "Building Docker image inside Minikube..."
                 docker build -t ${IMAGE_NAME}:latest .
                 docker images | grep ${IMAGE_NAME}
                 '''
@@ -51,9 +60,11 @@ pipeline {
                 sh '''
                 #!/bin/bash
                 export KUBECONFIG=${KUBECONFIG_PATH}
-                echo "Applying Kubernetes deployment..."
+                echo "Applying Kubernetes Deployment and Service..."
                 kubectl apply -f k8s-deployment.yaml
                 kubectl apply -f k8s-service.yaml
+                echo "Waiting for pod to be ready..."
+                kubectl rollout status deployment/nginx-demo
                 kubectl get pods
                 kubectl get svc
                 '''
@@ -64,7 +75,7 @@ pipeline {
 
     post {
         success {
-            echo "✅ Deployment successful! You can access the app using:"
+            echo "✅ Deployment successful! Access app with:"
             echo "minikube service nginx-demo-service --url"
         }
         failure {
