@@ -1,15 +1,18 @@
 apiVersion: apps/v1
 kind: Deployment
 metadata:
-  name: nginx-demo-v2
+  name: nginx-demo
+  labels:
+    app: nginx-demo
 spec:
+  replicas: 1
   selector:
     matchLabels:
-      app: nginx-demo-v2
+      app: nginx-demo
   template:
     metadata:
       labels:
-        app: nginx-demo-v2
+        app: nginx-demo
     spec:
       containers:
       - name: nginx
@@ -17,5 +20,3 @@ spec:
         imagePullPolicy: Never
         ports:
         - containerPort: 80
-
-
