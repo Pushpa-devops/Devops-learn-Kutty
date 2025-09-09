@@ -7,7 +7,7 @@ pipeline {
     }
 
     triggers {
-        pollSCM('H * * * *')
+        pollSCM('H * * * *')  // Poll GitHub every hour
     }
 
     stages {
@@ -33,16 +33,18 @@ pipeline {
         stage('Configure Docker for Minikube') {
             steps {
                 sh '''
+                echo "Pointing Docker CLI to Minikube..."
                 eval $(minikube docker-env)
                 docker version
                 '''
             }
         }
 
-        stage('Clean Old Pods') {
+        stage('Clean Old Deployment & Pods') {
             steps {
                 sh '''
-                echo "Deleting old pods to avoid rollout stuck..."
+                echo "Deleting old deployment and pods..."
+                kubectl delete deployment nginx-demo --ignore-not-found
                 kubectl delete pod -l app=nginx-demo --ignore-not-found
                 '''
             }
@@ -62,9 +64,9 @@ pipeline {
             steps {
                 sh '''
                 export KUBECONFIG=${KUBECONFIG_PATH}
+                echo "Applying Deployment and Service..."
                 kubectl apply -f k8s-deployment.yaml
                 kubectl apply -f k8s-service.yaml
-                kubectl rollout restart deployment/nginx-demo
                 kubectl rollout status deployment/nginx-demo
                 kubectl get pods
                 kubectl get svc
@@ -83,4 +85,5 @@ pipeline {
         }
     }
 }
+
 
