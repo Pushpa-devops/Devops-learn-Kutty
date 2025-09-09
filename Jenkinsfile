@@ -22,9 +22,9 @@ pipeline {
             steps {
                 sh '''
                 #!/bin/bash
-                MINIKUBE_STATUS=$(minikube status --format '{{.Host}} {{.Kubelet}} {{.APIServer}}')
-                if [[ "$MINIKUBE_STATUS" != *"Running Running Running"* ]]; then
-                    echo "Starting Minikube with enough resources..."
+                STATUS=$(minikube status --format '{{.Host}} {{.Kubelet}} {{.APIServer}}')
+                if [[ "$STATUS" != *"Running Running Running"* ]]; then
+                    echo "Starting Minikube with sufficient resources..."
                     minikube start --driver=docker --memory=4096 --cpus=2 --addons=storage-provisioner
                 else
                     echo "Minikube already running"
@@ -33,18 +33,18 @@ pipeline {
             }
         }
 
-        stage('Set Docker to Minikube') {
+        stage('Configure Docker to Use Minikube') {
             steps {
                 sh '''
                 #!/bin/bash
-                echo "Pointing Docker to Minikube's Docker daemon..."
+                echo "Pointing Docker CLI to Minikube's Docker daemon..."
                 eval $(minikube docker-env)
                 docker version
                 '''
             }
         }
 
-        stage('Build Docker Image') {
+        stage('Build Docker Image Inside Minikube') {
             steps {
                 sh '''
                 #!/bin/bash
@@ -61,9 +61,14 @@ pipeline {
                 #!/bin/bash
                 export KUBECONFIG=${KUBECONFIG_PATH}
                 echo "Applying Kubernetes Deployment and Service..."
+
+                # Use local image only
+                sed -i 's|image: nginx-jenkins-minikube:latest|image: nginx-jenkins-minikube:latest\\n        imagePullPolicy: Never|' k8s-deployment.yaml
+
                 kubectl apply -f k8s-deployment.yaml
                 kubectl apply -f k8s-service.yaml
-                echo "Waiting for pod to be ready..."
+
+                echo "Waiting for deployment to rollout..."
                 kubectl rollout status deployment/nginx-demo
                 kubectl get pods
                 kubectl get svc
@@ -75,11 +80,11 @@ pipeline {
 
     post {
         success {
-            echo "✅ Deployment successful! Access app with:"
-            echo "minikube service nginx-demo-service --url"
+            echo "✅ Deployment successful!"
+            echo "Check URL with: minikube service nginx-demo-service --url"
         }
         failure {
-            echo "❌ Pipeline failed. Check console logs for details."
+            echo "❌ Pipeline failed. Check console logs."
         }
     }
 }
