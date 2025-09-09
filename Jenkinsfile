@@ -18,7 +18,11 @@ pipeline {
 
         stage('Build Docker Image') {
             steps {
-                sh "eval \$(minikube docker-env) && docker build -t ${IMAGE_NAME}:latest ."
+                    sh '''
+                    #!/bin/bash
+                    eval $(minikube docker-env)
+                    docker build -t nginx-jenkins-minikube:latest .
+                    '''
             }
         }
 
