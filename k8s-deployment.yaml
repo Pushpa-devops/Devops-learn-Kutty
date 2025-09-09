@@ -2,19 +2,23 @@ apiVersion: apps/v1
 kind: Deployment
 metadata:
   name: nginx-demo
+  labels:
+    app: nginx-demo
 spec:
   replicas: 1
   selector:
     matchLabels:
-      app: my-nginx   # 👈 label changed
+      app: nginx-demo
   template:
     metadata:
       labels:
-        app: my-nginx # 👈 label changed
+        app: nginx-demo
     spec:
       containers:
       - name: nginx
         image: nginx-jenkins-minikube:latest
+        imagePullPolicy: Never
         ports:
         - containerPort: 80
+
 
