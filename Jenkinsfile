@@ -2,8 +2,10 @@ pipeline {
     agent any
 
     environment {
-        KUBECONFIG_PATH = "/home/jenkins/.kube/config"
-    }
+    IMAGE_NAME = "nginx-jenkins-demo"
+    KUBECONFIG = "/var/lib/jenkins/.kube/config"
+}
+
 
     stages {
         stage('Checkout Code') {
@@ -26,24 +28,19 @@ pipeline {
                 '''
             }
         }
+        
+stage('Deploy to Minikube') {
+    steps {
+        sh '''
+        echo "➡️ Applying Deployment..."
+        kubectl apply -f k8s/deployment.yaml --kubeconfig=$KUBECONFIG
+        kubectl apply -f k8s/service.yaml --kubeconfig=$KUBECONFIG
+        kubectl get pods --kubeconfig=$KUBECONFIG
+        kubectl get svc --kubeconfig=$KUBECONFIG
+        '''
+    }
+}
 
-        stage('Deploy to Kubernetes') {
-            steps {
-                sh '''
-                export KUBECONFIG=${KUBECONFIG_PATH}
-
-                echo "➡️ Applying Deployment..."
-                sed -i 's|image: nginx:alpine|image: nginx-jenkins-demo:latest\\n        imagePullPolicy: Never|' k8s-deployment.yaml
-                kubectl apply -f k8s-deployment.yaml
-
-                echo "➡️ Applying Service..."
-                kubectl apply -f k8s-service.yaml
-
-                echo "➡️ Waiting for rollout..."
-                kubectl rollout status deployment/nginx-test
-                '''
-            }
-        }
 
         stage('Verify & Print URL') {
             steps {
