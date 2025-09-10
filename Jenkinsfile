@@ -20,17 +20,18 @@ pipeline {
         }
 
         stage('Start Minikube') {
-            steps {
-                sh '''
-                #!/bin/bash
-                if ! minikube status >/dev/null 2>&1; then
-                    echo "Starting Minikube..."
-                    minikube start --driver=docker
-                fi
-                minikube status
-                '''
-            }
-        }
+    steps {
+        sh '''
+        #!/bin/bash
+        if ! minikube status >/dev/null 2>&1; then
+            echo "Starting Minikube with Docker driver..."
+            minikube start --driver=docker
+        fi
+        minikube status
+        '''
+    }
+}
+
 
         stage('Build Docker Image in Minikube') {
             steps {
