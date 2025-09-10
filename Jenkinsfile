@@ -1,52 +1,74 @@
-stage('Deploy Nginx') {
-    steps {
-        sh '''
-        #!/bin/bash
-        export KUBECONFIG=${KUBECONFIG_PATH}
+pipeline {
+    agent any
 
-        echo "Creating simple Nginx deployment..."
-        kubectl apply -f - <<EOF
-apiVersion: apps/v1
-kind: Deployment
-metadata:
-  name: nginx-test
-spec:
-  replicas: 1
-  selector:
-    matchLabels:
-      app: nginx-test
-  template:
-    metadata:
-      labels:
-        app: nginx-test
-    spec:
-      containers:
-      - name: nginx
-        image: nginx:alpine
-        ports:
-        - containerPort: 80
-EOF
+    environment {
+        KUBECONFIG_PATH = "/home/jenkins/.kube/config"
+    }
 
-        echo "Creating Service..."
-        kubectl apply -f - <<EOF
-apiVersion: v1
-kind: Service
-metadata:
-  name: nginx-test-service
-spec:
-  type: NodePort
-  selector:
-    app: nginx-test
-  ports:
-    - port: 80
-      targetPort: 80
-      nodePort: 30080
-EOF
+    stages {
+        stage('Checkout Code') {
+            steps {
+                git branch: 'main', url: 'https://github.com/Pushpa-devops/Devops-learn-Kutty.git'
+            }
+        }
 
-        echo "Waiting for pod to be ready..."
-        kubectl rollout status deployment/nginx-test
-        kubectl get pods -o wide
-        kubectl get svc nginx-test-service
-        '''
+        stage('Build Docker Image in Minikube') {
+            steps {
+                sh '''
+                echo "➡️ Switching Docker to Minikube..."
+                eval $(minikube docker-env)
+
+                echo "➡️ Building Docker image..."
+                docker build -t nginx-jenkins-demo:latest .
+
+                echo "✅ Image built successfully:"
+                docker images | grep nginx-jenkins-demo
+                '''
+            }
+        }
+
+        stage('Deploy to Kubernetes') {
+            steps {
+                sh '''
+                export KUBECONFIG=${KUBECONFIG_PATH}
+
+                echo "➡️ Applying Deployment..."
+                sed -i 's|image: nginx:alpine|image: nginx-jenkins-demo:latest\\n        imagePullPolicy: Never|' k8s-deployment.yaml
+                kubectl apply -f k8s-deployment.yaml
+
+                echo "➡️ Applying Service..."
+                kubectl apply -f k8s-service.yaml
+
+                echo "➡️ Waiting for rollout..."
+                kubectl rollout status deployment/nginx-test
+                '''
+            }
+        }
+
+        stage('Verify & Print URL') {
+            steps {
+                sh '''
+                export KUBECONFIG=${KUBECONFIG_PATH}
+
+                echo "➡️ Pods:"
+                kubectl get pods -o wide
+
+                echo "➡️ Services:"
+                kubectl get svc nginx-test-service
+
+                echo "➡️ Access Nginx using:"
+                minikube service nginx-test-service --url
+                '''
+            }
+        }
+    }
+
+    post {
+        failure {
+            echo "❌ Pipeline failed. Check console output."
+        }
+        success {
+            echo "✅ Deployment successful! 🎉"
+        }
     }
 }
