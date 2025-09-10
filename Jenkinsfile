@@ -14,7 +14,7 @@ pipeline {
 
         stage('Checkout') {
             steps {
-                git branch: 'main', url: 'https://github.com/<your-username>/minikube-jenkins-demo.git'
+                git branch: 'main', url: 'https://github.com/Pushpa-devops/Devops-learn-Kutty.git'
             }
         }
 
