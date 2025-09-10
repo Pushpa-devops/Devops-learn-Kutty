@@ -2,53 +2,56 @@ pipeline {
     agent any
 
     environment {
-    IMAGE_NAME = "nginx-jenkins-demo"
-    KUBECONFIG = "/var/lib/jenkins/.kube/config"
-}
+        IMAGE_NAME = "nginx-jenkins-demo"
+    }
 
+    triggers {
+        pollSCM('H * * * *')  // check Git every hour
+    }
 
     stages {
+
         stage('Checkout Code') {
             steps {
                 git branch: 'main', url: 'https://github.com/Pushpa-devops/Devops-learn-Kutty.git'
             }
         }
 
-       stage('Build Docker Image') {
-    steps {
-        sh '''
-        echo "➡️ Building Docker image inside Minikube..."
-        minikube image build -t nginx-jenkins-demo:latest .
-        '''
-    }
-}
+        stage('Build Docker Image in Minikube') {
+            steps {
+                sh '''
+                echo "➡️ Building Docker image inside Minikube..."
+                minikube image build -t ${IMAGE_NAME}:latest .
 
-        
-stage('Deploy to Minikube') {
-    steps {
-        sh '''
-        echo "➡️ Applying Deployment..."
-        kubectl apply -f k8s-deployment.yaml --kubeconfig=$KUBECONFIG
-        kubectl apply -f k8s-service.yaml --kubeconfig=$KUBECONFIG
-        kubectl get pods --kubeconfig=$KUBECONFIG
-        kubectl get svc --kubeconfig=$KUBECONFIG
-        '''
-    }
-}
+                echo "✅ Image built successfully:"
+                docker images | grep ${IMAGE_NAME} || true
+                '''
+            }
+        }
 
+        stage('Deploy to Minikube') {
+            steps {
+                sh '''
+                echo "➡️ Applying Deployment via Minikube CLI..."
+                minikube kubectl -- apply -f k8s-deployment.yaml
+                minikube kubectl -- apply -f k8s-service.yaml
+
+                echo "➡️ Waiting for deployment rollout..."
+                minikube kubectl -- rollout status deployment/nginx-test
+                '''
+            }
+        }
 
         stage('Verify & Print URL') {
             steps {
                 sh '''
-                export KUBECONFIG=${KUBECONFIG_PATH}
-
                 echo "➡️ Pods:"
-                kubectl get pods -o wide
+                minikube kubectl -- get pods -o wide
 
                 echo "➡️ Services:"
-                kubectl get svc nginx-test-service
+                minikube kubectl -- get svc nginx-test-service
 
-                echo "➡️ Access Nginx using:"
+                echo "➡️ Access Nginx using this URL:"
                 minikube service nginx-test-service --url
                 '''
             }
