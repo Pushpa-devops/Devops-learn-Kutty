@@ -17,30 +17,25 @@ pipeline {
             }
         }
 
-        stage('Build Docker Image in Minikube') {
-            steps {
-                sh '''
-                echo "➡️ Building Docker image inside Minikube..."
-                minikube image build -t ${IMAGE_NAME}:latest .
+        stage('Build Docker Image & Deploy') {
+    steps {
+        sh '''
+        echo "➡️ Configuring Docker for Minikube..."
+        eval $(minikube docker-env)
 
-                echo "✅ Image built successfully:"
-                docker images | grep ${IMAGE_NAME} || true
-                '''
-            }
-        }
+        echo "➡️ Building Docker image..."
+        docker build -t nginx-jenkins-demo:latest .
 
-        stage('Deploy to Minikube') {
-            steps {
-                sh '''
-                echo "➡️ Applying Deployment via Minikube CLI..."
-                minikube kubectl -- apply -f k8s-deployment.yaml
-                minikube kubectl -- apply -f k8s-service.yaml
+        echo "➡️ Deploying manifests..."
+        kubectl apply -f k8s/deployment.yaml --validate=false
+        kubectl apply -f k8s/service.yaml --validate=false
 
-                echo "➡️ Waiting for deployment rollout..."
-                minikube kubectl -- rollout status deployment/nginx-test
-                '''
-            }
-        }
+        echo "➡️ Rollout status..."
+        kubectl rollout status deployment/nginx-test
+        '''
+    }
+}
+
 
         stage('Verify & Print URL') {
             steps {
