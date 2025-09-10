@@ -14,20 +14,15 @@ pipeline {
             }
         }
 
-        stage('Build Docker Image in Minikube') {
-            steps {
-                sh '''
-                echo "➡️ Switching Docker to Minikube..."
-                eval $(minikube docker-env)
+       stage('Build Docker Image') {
+    steps {
+        sh '''
+        echo "➡️ Building Docker image inside Minikube..."
+        minikube image build -t nginx-jenkins-demo:latest .
+        '''
+    }
+}
 
-                echo "➡️ Building Docker image..."
-                docker build -t nginx-jenkins-demo:latest .
-
-                echo "✅ Image built successfully:"
-                docker images | grep nginx-jenkins-demo
-                '''
-            }
-        }
         
 stage('Deploy to Minikube') {
     steps {
