@@ -33,8 +33,8 @@ stage('Deploy to Minikube') {
     steps {
         sh '''
         echo "➡️ Applying Deployment..."
-        kubectl apply -f k8s/deployment.yaml --kubeconfig=$KUBECONFIG
-        kubectl apply -f k8s/service.yaml --kubeconfig=$KUBECONFIG
+        kubectl apply -f k8s-deployment.yaml --kubeconfig=$KUBECONFIG
+        kubectl apply -f k8s-service.yaml --kubeconfig=$KUBECONFIG
         kubectl get pods --kubeconfig=$KUBECONFIG
         kubectl get svc --kubeconfig=$KUBECONFIG
         '''
