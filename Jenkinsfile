@@ -7,55 +7,38 @@ pipeline {
     }
 
     triggers {
-        pollSCM('H * * * *')  // Poll GitHub every hour
+        // Poll GitHub every 1 hour
+        pollSCM('H * * * *')
     }
 
     stages {
 
         stage('Checkout') {
             steps {
-                git branch: 'main', url: 'https://github.com/Pushpa-devops/Devops-learn-Kutty.git'
+                git branch: 'main', url: 'https://github.com/Pushpa-devops/minikube-jenkins-demo.git'
             }
         }
 
-        stage('Start Minikube if Needed') {
+        stage('Start Minikube') {
             steps {
                 sh '''
-                STATUS=$(minikube status --format '{{.Host}} {{.Kubelet}} {{.APIServer}}')
-                if [[ "$STATUS" != *"Running Running Running"* ]]; then
+                #!/bin/bash
+                if ! minikube status >/dev/null 2>&1; then
                     echo "Starting Minikube..."
-                    minikube start --driver=docker --memory=4096 --cpus=2 --addons=storage-provisioner
+                    minikube start --driver=docker
                 fi
+                minikube status
                 '''
             }
         }
 
-        stage('Configure Docker for Minikube') {
+        stage('Build Docker Image in Minikube') {
             steps {
                 sh '''
-                echo "Pointing Docker CLI to Minikube..."
-                eval $(minikube docker-env)
-                docker version
-                '''
-            }
-        }
-
-        stage('Clean Old Deployment & Pods') {
-            steps {
-                sh '''
-                echo "Deleting old deployment and pods..."
-                kubectl delete deployment nginx-demo --ignore-not-found
-                kubectl delete pod -l app=nginx-demo --ignore-not-found
-                '''
-            }
-        }
-
-        stage('Build Docker Image Inside Minikube') {
-            steps {
-                sh '''
-                echo "Building Docker image inside Minikube..."
-                docker build -t ${IMAGE_NAME}:latest .
-                docker images | grep ${IMAGE_NAME}
+                #!/bin/bash
+                echo "Building image inside Minikube..."
+                minikube image build -t ${IMAGE_NAME}:latest .
+                minikube image ls | grep ${IMAGE_NAME}
                 '''
             }
         }
@@ -63,8 +46,9 @@ pipeline {
         stage('Deploy to Minikube') {
             steps {
                 sh '''
+                #!/bin/bash
                 export KUBECONFIG=${KUBECONFIG_PATH}
-                echo "Applying Deployment and Service..."
+                echo "Deploying app to Minikube..."
                 kubectl apply -f k8s-deployment.yaml
                 kubectl apply -f k8s-service.yaml
                 kubectl rollout status deployment/nginx-demo
@@ -78,10 +62,11 @@ pipeline {
     post {
         success {
             echo "✅ Deployment successful!"
-            echo "Access app using: minikube service nginx-demo-service --url"
+            echo "Run this to access your app:"
+            echo "minikube service nginx-demo-service --url"
         }
         failure {
-            echo "❌ Pipeline failed. Check logs."
+            echo "❌ Deployment failed. Check logs."
         }
     }
 }
